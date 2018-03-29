@@ -3,6 +3,33 @@ Overview
 
 This is my personal userspace file.  Most of my code exists here, as it's heavily shared. 
 
+Userspace Config.h
+------------------
+
+By default, the userspace feature doesn't include a `config.h` file the way that that keyboards, revisions, keymaps and layouts handle them.  This means that if you want global configurations via userspace, it's very difficult to implement.  
+
+The reason for using seperate files here is that the `drashna.h` file doesn't get called in such a way that will actually define QMK settings.  Additionally, attempting to add it to the `config.h` files has issues. Namely, the `drashna.h` file requires the `quantum.h` file... but including this to the `config.h` attemps to redefines a bunch of settings and breaks the firmare.  Removing the `quantum.h` include means that a number of data structures no longer get added, and the `SAFE_RANGE` value is no longer defined, as well.  So we need both a `config.h` for global config, and we need a seperate h file for local settings. 
+
+However, the `rules.mk` file is included when building the firmware.  So we can hijack that process to "manually" add a `config.h`. To do so, you would need to add the following to the `rules.mk` in your userspace:
+
+```
+ifneq ("$(wildcard users/$(KEYMAP)/config.h)","")
+    CONFIG_H += users/$(KEYMAP)/config.h
+endif
+```
+
+You can replace `$(KEYMAP)` with your name, but it's not necessary. This checks for the existence of `/users/<name>/config.h`, and if it exists, includes it like every other `config.h` file, allowing you to make global `config.h` settings. 
+
+As for the `config.h` file, you want to make sure that it has an "ifdef" in it to make sure it's only used once.  So you want something like this: 
+
+```
+#ifndef USERSPACE_CONFIG_H
+#define USERSPACE_CONFIG_H
+
+// put stuff here 
+
+#endif
+```
 
 Custom userspace handlers
 -------------------------
@@ -18,6 +45,22 @@ All (most) `_user` functions are handled here instead.  To allow keyboard specif
 This allows for keyboard specific configuration while maintaining the ability to customize the board. 
 
 My [Ergodox EZ Keymap](https://github.com/qmk/qmk_firmware/blob/master/keyboards/ergodox_ez/keymaps/drashna/keymap.c#L399) is a good example of this, as it uses the LEDs as modifier indicators.
+
+
+Keyboard Layout Templates
+-------------------------
+
+This borrows from @jola5's "Not quite neo" code.  This allows me to maintain blocks of keymaps in the userspace, so that I can modify the userspace, and this is reflected in all of the keyboards that use it, at once. 
+
+This makes adding tap/hold mods, or other special keycodes or functions to all keyboards super easy, as it's done to all of them at once. 
+
+The caveat here is that the keymap needs a processor/wrapper, as it doesn't like the substitutions.  However, this is as simple as just pushing it through a define. For instance: 
+
+`#define LAYOUT_ergodox_wrapper(...)   LAYOUT_ergodox(__VA_ARGS__)`
+
+Once that's been done and you've switched the keymaps to use the "wrapper", it will read the substitution blocks just fine. 
+
+Credit goes to @jola5 for first implementing this awesome idea.
 
 
 Custom Keycodes
